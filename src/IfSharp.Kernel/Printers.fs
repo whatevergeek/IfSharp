@@ -64,7 +64,7 @@ module Printers =
     /// Finds a display printer based off of the type
     let findDisplayPrinter(findType) =
         // Get printers that were registered using `fsi.AddHtmlPrinter` and turn them 
-        // into printers expected here (just contactenate all <script> tags with HTML)
+        // into printers expected here (just concatenate all <script> tags with HTML)
         let extraPrinters = 
             Evaluation.extraPrinters
             |> Seq.map (fun (t, p) -> t, fun o -> 
