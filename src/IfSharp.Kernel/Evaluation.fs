@@ -75,6 +75,7 @@ module Evaluation =
         let index = lines |> Seq.tryFindIndex (fun x -> x.StartsWith("val it :"))
         if index.IsSome then
             //We could display more of these errors but the errors may be confusing. Consider.
+            //https://github.com/fsprojects/IfSharp/issues/153
             try 
                 let result, errors = fsiEval.EvalExpressionNonThrowing("it")
                 match result with
