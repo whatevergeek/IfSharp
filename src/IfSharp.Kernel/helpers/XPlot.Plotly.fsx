@@ -8,6 +8,7 @@ open IfSharp.Kernel.Globals
 
 do
     Printers.addDisplayPrinter(fun (plot: PlotlyChart) ->
+        
         { ContentType = "text/html"; Data = plot.GetInlineHtml() })
 
     //System.Net.ServicePointManager.SecurityProtocol <- System.Net.SecurityProtocolType.Tls12

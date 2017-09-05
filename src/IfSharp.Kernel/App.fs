@@ -48,13 +48,12 @@ module App =
 
         if value <> null then
             if sbPrint.Length > 0 then
-                Kernel.Value.SendDisplayData("text/plain", sbPrint.ToString())
+                Kernel.Value.SendDisplayData( Map.ofList [("text/plain", sbPrint.ToString() :> obj)])
                 sbPrint.Clear() |> ignore
 
             let printer = Printers.findDisplayPrinter (value.GetType())
-            let (_, callback) = printer
-            let callbackValue = callback(value)
-            Kernel.Value.SendDisplayData(callbackValue.ContentType, callbackValue.Data)
+            let callbackValue = printer(value)
+            Kernel.Value.SendDisplayData callbackValue
 
     /// Global help function
     let Help (value : obj) = 

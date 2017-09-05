@@ -450,7 +450,7 @@ type Pyout =
         // # data and metadata are identical to a display_data message.
         // # the object being displayed is that passed to the display hook,
         // # i.e. the *result* of the execution.
-        data: Dictionary<string,obj>;
+        data: Map<string,obj>;
         metadata: Dictionary<string,obj>;
     }
 

@@ -85,7 +85,7 @@ type IfSharpKernel(connectionInformation : ConnectionInformation) =
     /// Serializes any object into JSON
     let serialize (obj) =
         let ser = JsonSerializer()
-        let sw = new StringWriter()
+        use sw = new StringWriter()
         ser.Serialize(sw, obj)
         sw.ToString()
 
@@ -214,17 +214,14 @@ type IfSharpKernel(connectionInformation : ConnectionInformation) =
         sendMessage shellSocket msg "kernel_info_reply" content
 
     /// Sends display data information immediately
-    let sendDisplayData (contentType) (displayItem) (messageType) =        
+    let sendDisplayData (data: Map<string, obj>) (messageType) =        
         if lastMessage.IsSome then
 
-            let d = Dictionary<string,obj>()
-            d.Add(contentType, displayItem)
-
-            let reply = { execution_count = executionCount; data = d; metadata = Dictionary<string,obj>() }
+            let reply = { execution_count = executionCount; data = data; metadata = Dictionary<string,obj>() }
             sendMessage ioSocket lastMessage.Value messageType reply
 
     /// Sends a message to pyout
-    let pyout (message) = sendDisplayData "text/plain" message "pyout"
+    let pyout (message) = sendDisplayData (Map.ofList[("text/plain", message)]) "pyout"
 
     /// Preprocesses the code and evaluates it
     let preprocessCode(code) = 
@@ -343,9 +340,9 @@ type IfSharpKernel(connectionInformation : ConnectionInformation) =
                             if it.ReflectionType <> typeof<unit> then
                                 let printer =
                                     Printers.findDisplayPrinter it.ReflectionType
-                                let (_, callback) = printer
-                                let callbackValue = callback(it.ReflectionValue)
-                                sendDisplayData callbackValue.ContentType callbackValue.Data "pyout"
+                                let callbackValue = printer(it.ReflectionValue)
+                                sendDisplayData callbackValue "pyout"
+
 
                         | None -> ()
 
@@ -360,7 +357,7 @@ type IfSharpKernel(connectionInformation : ConnectionInformation) =
                 sendError err
 
         if sbPrint.Length > 0 then
-            sendDisplayData "text/plain" (sbPrint.ToString()) "display_data"
+            sendDisplayData (Map.ofList[("text/plain", sbPrint.ToString() :> obj)]) "display_data"
 
         // we are now idle
         sendStateIdle msg
@@ -431,7 +428,7 @@ type IfSharpKernel(connectionInformation : ConnectionInformation) =
             |]
             |> Array.filter (fun x -> x.Subcategory <> "parse")
             
-        sendDisplayData "errors" newErrors "display_data"
+        sendDisplayData (Map.ofList[("errors", newErrors :> obj)]) "display_data"
         sendMessage (shellSocket) (msg) ("complete_reply") (newContent)
 
     /// Handles a 'connect_request' message
@@ -533,8 +530,8 @@ type IfSharpKernel(connectionInformation : ConnectionInformation) =
         payload.Add( { html = ""; source = "page"; start_line_number = 1; text = text })
 
     /// Adds display data to the list of display data to send to the client
-    member __.SendDisplayData (contentType, displayItem) =
-        sendDisplayData contentType displayItem "display_data"
+    member __.SendDisplayData data =
+        sendDisplayData data "display_data"
 
     /// Starts the kernel asynchronously
     member __.StartAsync() = 

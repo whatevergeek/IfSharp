@@ -6,18 +6,24 @@ open System.Web
 
 module Printers =
 
-    let mutable internal displayPrinters : list<Type * (obj -> BinaryOutput)> = []
+    let mutable internal displayPrinters : list<Type * (obj -> Map<string,obj>)> = []
+    let mutable internal displayMultiPrinters : list<Type * (obj -> Map<string,obj>)> = []
 
     /// Convenience method for encoding a string within HTML
     let internal htmlEncode(str) = HttpUtility.HtmlEncode(str)
 
     /// Adds a custom display printer for extensibility
     let addDisplayPrinter(printer : 'T -> BinaryOutput) =
-        displayPrinters <- (typeof<'T>, (fun (x:obj) -> printer (unbox x))) :: displayPrinters
+        displayPrinters <- (typeof<'T>, (fun (x:obj) ->
+                                            let binaryOutput = printer (unbox x)
+                                            Map.ofList [(binaryOutput.ContentType, binaryOutput.Data)])) :: displayPrinters
+
+    let addDisplayMultiPrinter(printer : 'T -> Map<string,obj>) =
+        displayMultiPrinters <- (typeof<'T>, (fun (x:obj) -> printer (unbox x))) :: displayMultiPrinters
 
     /// Default display printer
     let defaultDisplayPrinter(x) =
-        { ContentType = "text/plain"; Data = sprintf "%A" x }
+        Map.ofList [("text/plain", sprintf "%A" x :> obj)]
 
     //https://technet.microsoft.com/en-us/ee353649(v=vs.85)
     let mapToFSharpAliases fullType name =
@@ -59,7 +65,7 @@ module Printers =
 
     let functionPrinter(func:obj) =
         let funcArguments = possiblyAFuncAsString (func.GetType())
-        { ContentType = "text/plain"; Data = sprintf "%A : %s" func funcArguments }
+        Map.ofList [("text/plain", sprintf "%A : %s" func funcArguments :> obj)]
 
     /// Finds a display printer based off of the type
     let findDisplayPrinter(findType) =
@@ -70,19 +76,27 @@ module Printers =
             |> Seq.map (fun (t, p) -> t, fun o -> 
                 let extras, html = p o
                 let extras = extras |> Seq.map snd |> String.concat ""
-                { ContentType = "text/html"; Data = extras + html })
+                //let binaryOutput = { ContentType = "text/html"; Data = extras + html }
+                Map.ofList [("text/html", (extras + html) :> obj)])
 
         let printers =
             Seq.append displayPrinters extraPrinters
             |> Seq.filter (fun (t, _) -> t.IsAssignableFrom(findType))
             |> Seq.toList
 
+        let multiPrinters =
+            displayMultiPrinters
+            |> Seq.filter (fun (t, _) -> t.IsAssignableFrom(findType))
+            |> Seq.toList
+
         if printers.Length > 0 then
-            printers.Head
+            snd printers.Head
+        elif multiPrinters.Length > 0 then
+            snd multiPrinters.Head
         elif FSharp.Reflection.FSharpType.IsFunction findType then
-            (typeof<Type>, functionPrinter)
+            functionPrinter
         else
-            (typeof<obj>, defaultDisplayPrinter)
+            defaultDisplayPrinter
 
     /// Adds default display printers
     let addDefaultDisplayPrinters() =
